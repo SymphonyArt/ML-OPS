@@ -7,11 +7,11 @@ on:
       - main
 
 jobs:
-  # JOB 1: CI, Training, Push ke Repo, dan Upload Artefak
+  # JOB 1: Train Model, Save MLflow Artifacts, and Push to Repo
   ci-and-train:
     runs-on: ubuntu-latest
     permissions:
-      contents: write 
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -28,16 +28,16 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install mlflow lightgbm pandas scikit-learn matplotlib
-          
+
       - name: Run training script
         run: |
-          python modelling.py 
-          
-      - name: Upload MLflow artifacts (to GitHub)
+          python modelling.py
+
+      - name: Upload MLflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-artifacts
-          path: ./mlruns 
+          path: ./mlruns
 
       - name: Commit and Push mlruns to Repository
         run: |
@@ -48,12 +48,15 @@ jobs:
           git push
 
 
-  # JOB 2: Build Docker & Push to Docker Hub
+  # JOB 2: Build Docker Image & Push to Docker Hub
   build-and-push-docker:
     runs-on: ubuntu-latest
     needs: ci-and-train
-    
+
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -69,23 +72,27 @@ jobs:
           name: mlflow-artifacts
           path: ./mlruns-download
 
-      - name: Build and Push Docker image
+      - name: Build and Push Docker Image
         run: |
-          pip install mlflow
-
-          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/my-mlflow-model:latest"
-
           echo "Searching for MLmodel file..."
           MODEL_DIR=$(find ./mlruns-download -type f -name "MLmodel" | head -n 1 | xargs dirname)
 
           if [ -z "$MODEL_DIR" ]; then
-            echo "❌ Error: MLmodel file not found in downloaded artifacts!"
-            find ./mlruns-download -maxdepth 5 -type f | sed 's/^/  - /'
+            echo "❌ ERROR: MLmodel file not found!"
+            find ./mlruns-download -maxdepth 5 -type f
             exit 1
           fi
 
           echo "✅ MLmodel found at: $MODEL_DIR"
-          mlflow build-docker -m "$MODEL_DIR" -n "$IMAGE_NAME"
 
-          echo "Pushing image to Docker Hub: $IMAGE_NAME"
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/my-mlflow-model:latest"
+
+          echo "📦 Building Docker image..."
+          cp -r "$MODEL_DIR" ./model-artifact
+          cd model-artifact
+          docker build -f docker/Dockerfile -t "$IMAGE_NAME" .
+
+          echo "🚀 Pushing Docker image to Docker Hub..."
           docker push "$IMAGE_NAME"
+
+          echo "✅ Deployment Completed Successfully!"
