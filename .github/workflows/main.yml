@@ -1,24 +1,29 @@
 name: CI/CD - MLflow to Docker Hub
 
-# Memicu saat:
 on:
-  # 1. Manual (tombol 'Run workflow' di tab Actions)
   workflow_dispatch:
-
-  # 2. Otomatis (setiap push ke branch 'main')
   push:
     branches:
       - main
 
 jobs:
-
-  # JOB 1: Menjalankan CI, Training, dan Menyimpan Artefak
+  # JOB 1: CI, Training, Push ke Repo, dan Upload Artefak
+ 
   ci-and-train:
     runs-on: ubuntu-latest
     
+    # PERUBAHAN 1: Tambahkan izin 'contents: write'
+    # Ini WAJIB agar workflow bisa melakukan 'git push'
+    permissions:
+      contents: write 
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        # PERUBAHAN 2: Tambahkan 'persist-credentials: true'
+        # Ini agar token login-nya bisa dipakai oleh 'git push'
+        with:
+          persist-credentials: true
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -28,26 +33,40 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          # Pastikan semua library dari skrip Python ada di sini
           pip install mlflow lightgbm pandas scikit-learn matplotlib
           
       - name: Run training script
         run: |
-          # Menjalankan skrip Python Anda
           python modelling.py 
           
       - name: Upload MLflow artifacts (to GitHub)
-        # Menyimpan folder 'mlruns' sebagai artefak workflow
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-artifacts
           path: ./mlruns 
 
+      # Tambahkan langkah baru untuk Commit & Push
+      - name: Commit and Push mlruns to Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Tambahkan folder mlruns yang baru
+          git add ./mlruns
+          
+          # Commit perubahan. `|| echo` agar tidak error jika tidak ada perubahan
+          # '[skip ci]' sangat penting agar push ini tidak memicu workflow lagi (looping)
+          git commit -m "Auto: Update mlruns artifacts [skip ci]" || echo "No changes to commit"
+          
+          # Push perubahan kembali ke repositori
+          git push
 
-  # JOB 2: Membangun dan Push Docker Image ke Docker Hub
+
+  # JOB 2: Membangun dan Push Docker Image (Tidak Berubah)
+
   build-and-push-docker:
     runs-on: ubuntu-latest
-    needs: ci-and-train # Menunggu Job 1 (train) selesai
+    needs: ci-and-train # Job ini tetap berjalan seperti biasa
     
     steps:
       - name: Set up Docker Buildx
@@ -60,36 +79,24 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Download MLflow artifacts
-        # Mengunduh artefak 'mlruns' yang disimpan oleh Job 1
+        # Job ini tetap mengambil artefak dari Job 1
         uses: actions/download-artifact@v4
         with:
           name: mlflow-artifacts
-          path: ./mlruns-download # Unduh ke folder ini
+          path: ./mlruns-download
 
       - name: Build and Push Docker image
         run: |
-          # 1. Install mlflow di runner ini
           pip install mlflow
-          
-          # 2. Tentukan nama image Anda
-          # GANTI 'my-mlflow-model' dengan nama repo Docker Hub Anda
           IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/my-mlflow-model:latest"
-          
-          # 3. Temukan path model dari artefak yang diunduh
-          # Perintah ini mencari file MLmodel di dalam folder 'lgbm_tuning'
           MODEL_DIR=$(dirname $(find ./mlruns-download -path "*lgbm_tuning/MLmodel"))
           
           if [ -z "$MODEL_DIR" ]; then
             echo "Error: File MLmodel tidak ditemukan."
-            echo "Pastikan 'artifact_path=\"lgbm_tuning\"' ada di skrip modelling.py."
             exit 1
           fi
           
           echo "Model directory found at: $MODEL_DIR"
-          
-          # 4. Bangun image menggunakan mlflow
           mlflow build-docker -m "$MODEL_DIR" -n "$IMAGE_NAME"
-          
-          # 5. Push image ke Docker Hub
           echo "Pushing image to Docker Hub: $IMAGE_NAME"
           docker push "$IMAGE_NAME"
