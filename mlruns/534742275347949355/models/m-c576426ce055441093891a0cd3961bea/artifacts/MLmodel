@@ -1,0 +1,38 @@
+artifact_path: file:////home/runner/work/ML-OPS/ML-OPS/mlruns/534742275347949355/models/m-c576426ce055441093891a0cd3961bea/artifacts
+flavors:
+  lightgbm:
+    code: null
+    data: model.pkl
+    lgb_version: 4.6.0
+    model_class: lightgbm.sklearn.LGBMClassifier
+  python_function:
+    data: model.pkl
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.lightgbm
+    python_version: 3.10.19
+is_signature_from_type_hint: false
+mlflow_version: 3.5.1
+model_id: m-c576426ce055441093891a0cd3961bea
+model_size_bytes: 686946
+model_uuid: m-c576426ce055441093891a0cd3961bea
+prompts: null
+run_id: 0a9882b910084eac98d497db17f57fe3
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "double", "name": "Age", "required": true}, {"type": "double",
+    "name": "Gender", "required": true}, {"type": "double", "name": "BMI", "required":
+    true}, {"type": "double", "name": "Chol", "required": true}, {"type": "double",
+    "name": "TG", "required": true}, {"type": "double", "name": "HDL", "required":
+    true}, {"type": "double", "name": "LDL", "required": true}, {"type": "double",
+    "name": "Cr", "required": true}, {"type": "double", "name": "BUN", "required":
+    true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "int64", "shape": [-1]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2025-11-06 17:06:33.804258'
