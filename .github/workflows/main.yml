@@ -8,20 +8,14 @@ on:
 
 jobs:
   # JOB 1: CI, Training, Push ke Repo, dan Upload Artefak
- 
   ci-and-train:
     runs-on: ubuntu-latest
-    
-    # PERUBAHAN 1: Tambahkan izin 'contents: write'
-    # Ini WAJIB agar workflow bisa melakukan 'git push'
     permissions:
       contents: write 
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        # PERUBAHAN 2: Tambahkan 'persist-credentials: true'
-        # Ini agar token login-nya bisa dipakai oleh 'git push'
         with:
           persist-credentials: true
 
@@ -45,25 +39,37 @@ jobs:
           name: mlflow-artifacts
           path: ./mlruns 
 
-      # Tambahkan langkah baru untuk Commit & Push
       - name: Commit and Push mlruns to Repository
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Tambahkan folder mlruns yang baru
           git add ./mlruns
-          
-          # Commit perubahan. `|| echo` agar tidak error jika tidak ada perubahan
-          # '[skip ci]' sangat penting agar push ini tidak memicu workflow lagi (looping)
           git commit -m "Auto: Update mlruns artifacts [skip ci]" || echo "No changes to commit"
-          
-          # Push perubahan kembali ke repositori
           git push
 
 
-  # JOB 2: Membangun dan Push Docker Image 
-       - name: Build and Push Docker image
+  # JOB 2: Build Docker & Push to Docker Hub
+  build-and-push-docker:
+    runs-on: ubuntu-latest
+    needs: ci-and-train
+    
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Download MLflow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mlflow-artifacts
+          path: ./mlruns-download
+
+      - name: Build and Push Docker image
         run: |
           pip install mlflow
 
@@ -78,11 +84,8 @@ jobs:
             exit 1
           fi
 
-          echo "✅ MLmodel found in: $MODEL_DIR"
-
-          # Build Docker Image from MLflow model
+          echo "✅ MLmodel found at: $MODEL_DIR"
           mlflow build-docker -m "$MODEL_DIR" -n "$IMAGE_NAME"
 
-          # Push Docker Image
           echo "Pushing image to Docker Hub: $IMAGE_NAME"
           docker push "$IMAGE_NAME"
