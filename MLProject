@@ -1,0 +1,9 @@
+name: lgbm-classification-project
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      experiment_name: {type: str, default: "LGBM_Autolog_Tuning"}
+    command: "python modelling.py --experiment-name {experiment_name}"
