@@ -1,0 +1,14 @@
+artifact_uri: file:////home/runner/work/ML-OPS/ML-OPS/mlruns/534742275347949355/cfc4de935f7c46bd86b0f69ff20de5fa/artifacts
+end_time: 1762449338362
+entry_point_name: ''
+experiment_id: '534742275347949355'
+lifecycle_stage: active
+run_id: cfc4de935f7c46bd86b0f69ff20de5fa
+run_name: Best_Model
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762449335389
+status: 3
+tags: []
+user_id: runner
