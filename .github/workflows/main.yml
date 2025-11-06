@@ -45,12 +45,16 @@ jobs:
           git commit -m "Auto-update mlruns artifacts [skip ci]" || echo "No changes"
           git push
 
-
   build-and-push-docker:
     needs: ci-and-train
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/my-mlflow-model:latest
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
       - name: Download MLflow Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -63,33 +67,36 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Find Latest MLmodel
+      - name: Find MLmodel file
         id: find_model
         run: |
-          MODEL_DIR=$(find ./mlruns-download -type f -name "MLmodel" | head -n 1 | xargs dirname)
+          FOUND=$(find ./mlruns-download -type f -name "MLmodel" | head -n 1)
+          if [ -z "$FOUND" ]; then
+            echo "❌ ERROR: MLmodel file not found!"
+            exit 1
+          fi
+          MODEL_DIR=$(dirname "$FOUND")
           echo "MODEL_DIR=$MODEL_DIR" >> $GITHUB_ENV
           echo "✅ MLmodel found in: $MODEL_DIR"
 
-      - name: Create Dockerfile dynamically
+      - name: Create Dockerfile
         run: |
-          MODEL_DIR="$MODEL_DIR"
-          cat <<EOF > $MODEL_DIR/Dockerfile
-FROM python:3.10-slim
-WORKDIR /app
-COPY . .
-RUN pip install --no-cache-dir mlflow[extras] \
-    && pip install --no-cache-dir -r requirements.txt || true
-EXPOSE 5000
-ENTRYPOINT ["mlflow", "models", "serve", "-m", "/app", "--host", "0.0.0.0", "--port", "5000"]
-EOF
+          cat <<'EOF' > "$MODEL_DIR/Dockerfile"
+          FROM python:3.10-slim
+          WORKDIR /app
+          COPY . .
+          RUN pip install --no-cache-dir mlflow[extras]
+          EXPOSE 5000
+          ENTRYPOINT ["mlflow", "models", "serve", "-m", "/app", "--host", "0.0.0.0", "--port", "5000"]
+          EOF
 
       - name: Build Docker Image
         run: |
-          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/my-mlflow-model:latest"
+          echo "🔨 Building Docker image from $MODEL_DIR"
           docker build -t "$IMAGE_NAME" "$MODEL_DIR"
 
       - name: Push Docker Image
         run: |
-          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/my-mlflow-model:latest"
+          echo "📤 Pushing image $IMAGE_NAME"
           docker push "$IMAGE_NAME"
-          echo "✅ Successfully pushed $IMAGE_NAME ✅"
+          echo "✅ Docker push completed!"
