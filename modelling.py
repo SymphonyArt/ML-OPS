@@ -166,7 +166,7 @@ def run_training():
     
         mlflow.lightgbm.log_model(
             lgb_model=best_model,
-            artifact_path="lgbm_tuning", # <-- Nama ini dicari oleh file YAML
+            name="lgbm_tuning",
             signature=signature,
             input_example=input_example,
         )
@@ -175,4 +175,5 @@ def run_training():
     print(f"\nFinished. Cek eksperimen '{experiment_name}' di folder 'mlruns'.")
 
 if __name__ == "__main__":
+
     run_training()
