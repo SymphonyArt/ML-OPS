@@ -62,11 +62,10 @@ jobs:
           git push
 
 
-  # JOB 2: Membangun dan Push Docker Image (Tidak Berubah)
-
+  # JOB 2: Membangun dan Push Docker Image 
   build-and-push-docker:
     runs-on: ubuntu-latest
-    needs: ci-and-train # Job ini tetap berjalan seperti biasa
+    needs: ci-and-train 
     
     steps:
       - name: Set up Docker Buildx
@@ -79,7 +78,6 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Download MLflow artifacts
-        # Job ini tetap mengambil artefak dari Job 1
         uses: actions/download-artifact@v4
         with:
           name: mlflow-artifacts
@@ -88,15 +86,17 @@ jobs:
       - name: Build and Push Docker image
         run: |
           pip install mlflow
+          
           IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/my-mlflow-model:latest"
-          MODEL_DIR=$(dirname $(find ./mlruns-download -path "*lgbm_tuning/MLmodel"))
           
           if [ -z "$MODEL_DIR" ]; then
-            echo "Error: File MLmodel tidak ditemukan."
+            echo "Error: File MLmodel tidak ditemukan di dalam /artifacts/!"
             exit 1
           fi
           
           echo "Model directory found at: $MODEL_DIR"
+          
           mlflow build-docker -m "$MODEL_DIR" -n "$IMAGE_NAME"
+          
           echo "Pushing image to Docker Hub: $IMAGE_NAME"
           docker push "$IMAGE_NAME"
