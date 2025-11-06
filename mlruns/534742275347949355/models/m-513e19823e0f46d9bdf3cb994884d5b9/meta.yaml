@@ -1,0 +1,10 @@
+artifact_location: file:////home/runner/work/ML-OPS/ML-OPS/mlruns/534742275347949355/models/m-513e19823e0f46d9bdf3cb994884d5b9/artifacts
+creation_timestamp: 1762450037107
+experiment_id: '534742275347949355'
+last_updated_timestamp: 1762450039765
+model_id: m-513e19823e0f46d9bdf3cb994884d5b9
+model_type: null
+name: lgbm_tuning
+source_run_id: 231564189945407098a6f3eb0b32bebd
+status: 2
+status_message: null
